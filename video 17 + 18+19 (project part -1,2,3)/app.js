@@ -1,0 +1,319 @@
+// const express = require("express");
+// const app = express();
+// const userModel = require("./models/user");
+// const postModel = require("./models/post");
+// const cookieParser = require("cookie-parser");
+// const bcrypt = require("bcrypt");
+// const jwt = require("jsonwebtoken");
+// const { use } = require("react");
+
+// app.set("view engine","ejs");
+// app.use(express.json());
+// app.use(express.urlencoded({extended:true}));
+// app.use(cookieParser());
+
+// app.get("/",(req,res) => {
+//     res.render("index");
+// });
+
+// app.get("/login",(req,res) => {
+//     res.render("login");
+// });
+
+// app.get("/pofile",isLoggedIn,async(req,res) => {
+//     let user = await userModel.findOne({emai:req.user.email}).populate("posts")
+//     let {content} = req.body;
+//   let post  = await postModel.create({
+//     user:user_id,
+//     content
+//   });
+
+//   user.posts.push(post._id);
+//    await = user.save();
+//    res.redirect("/profile")
+// });
+
+// app.get("/post",isLoggedIn,async(req,res) => {
+//     let user = await userModel.findOne({emai:req.user.email})
+//     console.log(user);
+//     res.render("profile");
+// });
+
+
+
+
+// app.post('/registerd',async (req,res) => {
+//     let {email,password,username,name,age} = req.body;
+
+//     let user = await userModel.findOne({email:email});
+
+//     if(user) return res.status(500).send("user already registered");
+
+//     bcrypt.genSalt(10,(err,salt) => {
+
+//         bcrypt.hash(password,salt,async (err,hash) => {
+
+//             let user = await userModel.create({
+//                 username,
+//                 email,
+//                 age,
+//                 name,
+//                 password: hash,
+//             });
+//             let token = jwt.sign({email,userid:user._id},"shhh");
+//             res.cookie("token",token);
+//             res.send("registered");
+//         });
+//     });
+// });
+
+
+// app.post('/login',async (req,res) => {
+//     let {email,password} = req.body;
+
+//     let user = await userModel.findOne({email:email});
+
+//     if(!user) return res.status(500).send("something went wrong");
+
+//     bcrypt.compare(password,user.password,function(err,result){
+//         if(result){
+//             let token = jwt.sign({email,userid:user._id},"shhh");
+//             res.cookie("token",token);
+//             res.status(200).redirect("/profile");
+//         }
+    
+//         else res.redirect("/login");
+//     });
+// });
+
+
+
+// app.get("/logout",(req,res) => {
+//     res.cookie("token","")
+//     res.redirect("/login"); 
+// });
+
+// function isLoggedIn(req,res,next){
+//     if(req.cookies.token === "") res.redirect("/login");
+//     else{
+//         let data = jwt.verify(req.cookies.token,"shhh");
+//         req.user = data;
+//     }
+//     next();
+// }
+
+// app.listen(3000,() => {
+//     console.log("Server is running on port 3000");
+// });
+
+
+
+const express = require("express");
+const app = express();
+
+const userModel = require("./models/user");
+const postModel = require("./models/post");
+
+const cookieParser = require("cookie-parser");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+
+
+app.set("view engine", "ejs");
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+
+// Home page
+app.get("/", (req, res) => {
+    res.render("index");
+});
+
+
+// Login page
+app.get("/login", (req, res) => {
+    res.render("login");
+});
+
+
+// Profile page
+app.get("/profile", isLoggedIn, async (req, res) => {
+
+    let user = await userModel
+        .findOne({ email: req.user.email })
+        .populate("posts");
+
+    res.render("profile", { user });
+});
+
+app.get("/like/:id", isLoggedIn, async (req, res) => {
+  let user = await postModel
+        .findOne({_id: req.params.id })
+        .populate("user");
+     post.likes.push(req.user.userid);
+
+     if(post.likes.indexof(req.user.userid) === -1){
+        post.likes.push(req.user.userid);
+     }
+     else{
+        post.likes.splice(post.likes.indexof(req.user.userid),1);
+     }
+     await post.save();
+    res.redirect("/profile");
+});
+
+
+app.get("/edit/:id", isLoggedIn, async (req, res) => {
+  let user = await postModel
+        .findOne({_id: req.params.id })
+        .populate("user");
+    
+     res.render("edit")
+});
+
+
+app.post("/update/:id", isLoggedIn, async (req, res) => {
+  let user = await postModel
+        .findOneAndupdate({_id: req.params.id },{content:req.body.content})
+        .populate("user");
+    
+     res.redirect("/profile");
+});
+
+
+
+
+
+// Create post
+app.post("/post", isLoggedIn, async (req, res) => {
+
+    let user = await userModel.findOne({
+        email: req.user.email
+    });
+
+    let { content } = req.body;
+
+    let post = await postModel.create({
+        user: user._id,
+        content: content
+    });
+
+    user.posts.push(post._id);
+
+    await user.save();
+
+    res.redirect("/profile");
+});
+
+
+// Register
+app.post("/registerd", async (req, res) => {
+
+    let { email, password, username, name, age } = req.body;
+
+    let user = await userModel.findOne({
+        email: email
+    });
+
+    if (user) {
+        return res.status(500).send("User already registered");
+    }
+
+    bcrypt.genSalt(10, (err, salt) => {
+
+        bcrypt.hash(password, salt, async (err, hash) => {
+
+            let user = await userModel.create({
+                username: username,
+                email: email,
+                age: age,
+                name: name,
+                password: hash
+            });
+
+            let token = jwt.sign(
+                {
+                    email: email,
+                    userid: user._id
+                },
+                "shhh"
+            );
+
+            res.cookie("token", token);
+
+            res.send("Registered successfully");
+        });
+    });
+});
+
+
+// Login
+app.post("/login", async (req, res) => {
+
+    let { email, password } = req.body;
+
+    let user = await userModel.findOne({
+        email: email
+    });
+
+    if (!user) {
+        return res.status(500).send("Something went wrong");
+    }
+
+    bcrypt.compare(password, user.password, function (err, result) {
+
+        if (result) {
+
+            let token = jwt.sign(
+                {
+                    email: email,
+                    userid: user._id
+                },
+                "shhh"
+            );
+
+            res.cookie("token", token);
+
+            res.status(200).redirect("/profile");
+
+        } else {
+
+            res.redirect("/login");
+        }
+    });
+});
+
+
+// Logout
+app.get("/logout", (req, res) => {
+
+    res.cookie("token", "");
+
+    res.redirect("/login");
+});
+
+
+// Authentication middleware
+function isLoggedIn(req, res, next) {
+
+    if (!req.cookies.token) {
+        return res.redirect("/login");
+    }
+
+    let data = jwt.verify(
+        req.cookies.token,
+        "shhh"
+    );
+
+    req.user = data;
+
+    next();
+}
+
+
+// Start server
+app.listen(3000, () => {
+    console.log("Server is running on port 3000");
+});
